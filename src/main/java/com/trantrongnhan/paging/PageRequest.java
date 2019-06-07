@@ -1,23 +1,24 @@
 package com.trantrongnhan.paging;
 
-public class PageRequest {
-	private Integer offset;
-	private Integer limit;
-	public PageRequest(Integer offset,Integer limit) {
-		this.offset=offset;
-		this.limit=limit;
+public class PageRequest implements Pageable {
+	private Integer page;
+	private Integer maxPageItem;
+	public PageRequest(Integer page,Integer maxPageItem) {
+		this.maxPageItem=maxPageItem;
+		this.page=page;
 	}
+	@Override
+	public Integer getPage() {
+		return this.page;
+	}
+	@Override
 	public Integer getOffset() {
-		return offset;
+		return (page-1)*maxPageItem;
 	}
-	public void setOffset(Integer offset) {
-		this.offset = offset;
-	}
+	@Override
 	public Integer getLimit() {
-		return limit;
+		// TODO Auto-generated method stub
+		return this.maxPageItem;
 	}
-	public void setLimit(Integer limit) {
-		this.limit = limit;
-	}
-	
+
 }

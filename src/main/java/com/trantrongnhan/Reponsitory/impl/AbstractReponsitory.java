@@ -11,12 +11,14 @@ import java.sql.SQLException;
 import java.sql.Statement;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 
 import com.trantrantrongnhan.mapper.RowMapper;
 import com.trantrongnhan.Reponsitory.GenericReponsitory;
 import com.trantrongnhan.annotations.Column;
 import com.trantrongnhan.annotations.Table;
 import com.trantrongnhan.paging.PageRequest;
+import com.trantrongnhan.paging.Pageable;
 import com.trantrongnhan.sorting.Sorter;
 
 public class AbstractReponsitory<T> implements GenericReponsitory<T> {
@@ -243,7 +245,7 @@ public class AbstractReponsitory<T> implements GenericReponsitory<T> {
 	}
 
 	@Override
-	public void delete(T obj) {
+	public void delete(Integer id) {
 		StringBuilder sql = new StringBuilder("delete from ");
 		Table t = clazz.getAnnotation(Table.class);
 		sql.append(t.name());
@@ -252,7 +254,6 @@ public class AbstractReponsitory<T> implements GenericReponsitory<T> {
 		PreparedStatement statement = null;
 		conn = getConnection();
 		try {
-			Object id = clazz.getMethod("getId").invoke(obj);
 			if (conn != null) {
 				conn.setAutoCommit(false);
 				statement = conn.prepareStatement(sql.toString());
@@ -300,7 +301,7 @@ public class AbstractReponsitory<T> implements GenericReponsitory<T> {
 		try {
 			T result=clazz.newInstance();
 			if(conn!=null) {
-				
+
 				statement=conn.prepareStatement(sql.toString());
 				if(statement!=null) {
 					statement.setObject(1,id);
@@ -311,7 +312,7 @@ public class AbstractReponsitory<T> implements GenericReponsitory<T> {
 					return tMapper.mapRow(resultSet, clazz);
 				}
 			}
-			
+
 		}catch(Exception e) {
 			System.out.println(e.getMessage());
 		}finally {
@@ -331,8 +332,8 @@ public class AbstractReponsitory<T> implements GenericReponsitory<T> {
 
 	@Override
 	public List<T> search(T obj,PageRequest pageRequest,Sorter sorter) {
-		
-		List<T> result=new ArrayList();
+
+		List<T> result=new ArrayList<T>();
 		StringBuilder sql=new StringBuilder("select * from ");
 		Table table=clazz.getAnnotation(Table.class);
 		sql.append(table.name());
@@ -348,7 +349,7 @@ public class AbstractReponsitory<T> implements GenericReponsitory<T> {
 				if((methods[i].getName().startsWith("get"))) {
 					if(methods[i].isAnnotationPresent(Column.class)) {
 						if(methods[i].invoke(obj)!=null) {
-							
+
 							if(count>0) {
 								sql.append(" and ");
 							}
@@ -360,7 +361,7 @@ public class AbstractReponsitory<T> implements GenericReponsitory<T> {
 							if(methods[i].getReturnType()==String.class) {
 								sql.append(" like ?");
 								parameters[count]="%"+methods[i].invoke(obj).toString()+"%";
-						
+
 							}
 							else {
 								sql.append(" = ?");
@@ -369,12 +370,12 @@ public class AbstractReponsitory<T> implements GenericReponsitory<T> {
 						}
 					}
 				}
-					
+
 			}
 			if(sorter!=null) {
 				if((sorter.getOrderBy()!=null)&&(sorter.getSortBy()!=null)) {
 					sql.append(" order by "+sorter.getOrderBy()+" "+sorter.getSortBy());
-					
+
 				}
 			}
 			if(pageRequest!=null) {
@@ -407,14 +408,83 @@ public class AbstractReponsitory<T> implements GenericReponsitory<T> {
 					statement.close();
 				if(conn!=null)
 					conn.close();
-				
+
 			}catch(Exception e) {
 				System.out.println(e.getMessage());
 			}
-			
+
 		}
 		return result;
-		
+
 	}
 
+	@Override
+	public List<T> search(Map<String, Object> map, Pageable pageRequest, Sorter sorter, Object... where) {
+		StringBuilder sql=new StringBuilder("select * from ");
+		Table t=clazz.getAnnotation(Table.class);
+		List<T>result=new ArrayList<>();
+
+		sql.append(t.name());
+		sql.append(" where 1=1");
+		for(Map.Entry<String, Object>i:map.entrySet()) {
+			sql.append(" and "+i.getKey());
+			if(i.getValue() instanceof String) {
+				sql.append(" like \'"+"%"+i.getValue()+"%\'");
+			}
+			else {
+				sql.append(" = "+i.getValue());
+			}
+		}
+		if(where!=null) {
+			if(where.length>0)
+				sql.append(where[0]);
+		}
+		if(sorter!=null) {
+			if((sorter.getOrderBy()!=null)&&(sorter.getSortBy()!=null)) {
+				sql.append(" order by "+sorter.getOrderBy()+" "+sorter.getSortBy());
+
+			}
+		}
+		if(pageRequest!=null) {
+			if((pageRequest.getOffset()!=null)&&(pageRequest.getLimit()!=null)) {
+				sql.append(" limit "+pageRequest.getOffset()+","+pageRequest.getLimit());
+			}
+		}
+		System.out.println(sql.toString());
+		Connection conn=getConnection();
+		Statement statement=null;
+		ResultSet resultSet=null;
+		try {
+			if(conn!=null) {
+				statement=conn.createStatement();
+				if(statement!=null) {
+					resultSet=statement.executeQuery(sql.toString());
+					if(resultSet!=null) {
+						while(resultSet.next()) {
+							result.add(new RowMapper<T>().mapRow(resultSet, clazz));
+						}
+					}
+				}
+
+			}
+		}catch(Exception e) {
+			System.out.println(e.getMessage());
+		}finally {
+			try {
+				if(resultSet!=null) {
+					resultSet.close();
+				}
+				if(statement!=null) {
+					statement.close();
+				}
+				if(conn!=null) {
+					conn.close();
+				}
+
+			}catch(Exception e) {
+				System.out.println(e.getMessage());
+			}
+		}
+		return result;
+	}
 }
